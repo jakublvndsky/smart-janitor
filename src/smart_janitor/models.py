@@ -6,23 +6,26 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class Extension(BaseModel):
-    type: Literal["extension"]
-    value: str
+    """Match files by extension (normalized, dot-less, lowercase)."""
 
-    @field_validator("value")
+    type: Literal["extension"]
+    pattern: str
+
+    @field_validator("pattern")
     @classmethod
     def normalize_extension(cls, v: str) -> str:
+        """Strip leading dot and lowercase the extension."""
         return v.lstrip(".").lower()
 
 
 class Regex(BaseModel):
     type: Literal["regex"]
-    value: str
+    pattern: str
 
 
 class Size(BaseModel):
     type: Literal["size"]
-    value: float
+    threshold: float
     unit: Literal["B", "KB", "MB", "GB"]
     operator: Literal["lt", "gt", "eq"]
 
@@ -54,6 +57,8 @@ class Rule(BaseModel):
 
 
 class FileInfo(BaseModel):
+    """Metadata describing a file on disk."""
+
     path: pathlib.Path
     size: int
     mtime: datetime
@@ -62,6 +67,7 @@ class FileInfo(BaseModel):
     @field_validator("extension")
     @classmethod
     def normalize_extension(cls, v: str) -> str:
+        """Strip leading dot and lowercase the extension."""
         return v.lstrip(".").lower()
 
 
