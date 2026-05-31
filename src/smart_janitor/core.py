@@ -32,9 +32,9 @@ def _match_size(file_size: int, rule_file_size: float, unit: str, operator: str)
     )
 
 
-def _match_regex(pattern: str, file_path_name: str) -> bool:
+def _match_regex(pattern: str, filename: str) -> bool:
     """Check if file's name matches the rule's regex pattern."""
-    return re.search(pattern, file_path_name) is not None
+    return re.search(pattern, filename) is not None
 
 
 def _match_days(file_mtime: datetime, rule_days: int) -> bool:

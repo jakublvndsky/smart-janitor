@@ -72,6 +72,6 @@ class FileInfo(BaseModel):
 
 
 class Move(BaseModel):
-    src: pathlib.Path | str
-    dst: pathlib.Path | str
+    src: pathlib.Path
+    dst: pathlib.Path
     rule: Rule
