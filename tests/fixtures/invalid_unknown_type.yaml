@@ -1,0 +1,7 @@
+rules:
+  - match:
+      type: owner
+      pattern: kuba
+    action:
+      kind: move_to
+      dst: /tmp/test

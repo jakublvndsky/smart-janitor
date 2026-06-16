@@ -1,0 +1,8 @@
+version: 1
+rules:
+  - match:
+      type: extension
+      pattern: txt
+    action:
+      kind: move_to
+      dst: /tmp/txt-files

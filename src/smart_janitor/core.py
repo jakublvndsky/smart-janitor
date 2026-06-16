@@ -69,6 +69,6 @@ def plan_moves(files: list[FileInfo], rules: list[Rule]) -> list[Move]:
                     moves.append(Move(src=file.path, dst=d, rule=rule))
                     break
                 case Rename():
-                    # TODO - Handle Rename model
+                    # TODO - implement later, requires rename-in-place vs move semantics
                     break
     return moves

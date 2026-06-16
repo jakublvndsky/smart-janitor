@@ -1,0 +1,8 @@
+version: 1
+rules:
+  - match:
+      type: age
+      older_than_days: -5    # ← Field(ge=0) tego nie przepuści
+    action:
+      kind: archive
+      dst: /tmp/test

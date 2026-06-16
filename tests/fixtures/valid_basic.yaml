@@ -1,0 +1,31 @@
+version: 1
+rules:
+  - match:
+      type: extension
+      pattern: pdf
+    action:
+      kind: move_to
+      dst: /tmp/smart-janitor-test/pdfs
+
+  - match:
+      type: regex
+      pattern: "^Screenshot.*\\.png$"
+    action:
+      kind: archive
+      dst: /tmp/smart-janitor-test/screenshots
+
+  - match:
+      type: size
+      threshold: 100
+      unit: MB
+      operator: gt
+    action:
+      kind: move_to
+      dst: /tmp/smart-janitor-test/large-files
+
+  - match:
+      type: age
+      older_than_days: 30
+    action:
+      kind: archive
+      dst: /tmp/smart-janitor-test/old

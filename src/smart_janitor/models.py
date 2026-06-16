@@ -75,3 +75,37 @@ class Move(BaseModel):
     src: pathlib.Path
     dst: pathlib.Path
     rule: Rule
+
+
+class FailedMove(BaseModel):
+    move: Move
+    error_type: Literal["permission_denied", "destination_not_exists", "source_missing", "other"]
+    error_message: str
+
+
+class ExecutionReport(BaseModel):
+    successful_moves: list[Move] = []
+    failed_moves: list[FailedMove] = []
+    skipped_moves: list[Move] = []
+    dry_run: bool
+
+    @property
+    def summary(self) -> str:
+        parts = [
+            f"Successful: {len(self.successful_moves)}",
+            f"Failed: {len(self.failed_moves)}",
+            f"Skipped: {len(self.skipped_moves)}",
+        ]
+        if self.dry_run:
+            parts.append("(dry run)")
+        return " | ".join(parts)
+
+
+class Config(BaseModel):
+    version: int = 1
+    rules: list[Rule]
+
+
+class ConfigError(Exception):
+    def __init__(self, message: str) -> None:
+        super().__init__(message)

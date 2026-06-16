@@ -1,0 +1,8 @@
+version: 1
+rules:
+  - match:
+      type: extension
+       pattern: pdf       # ← celowo zła indentacja
+    action:
+      kind: move_to
+      dst: /tmp/test
