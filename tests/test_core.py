@@ -151,7 +151,7 @@ def test_plan_moves(jpg_file: FileInfo, pdf_file: FileInfo) -> None:
     )
     rule_2 = Rule(
         match=Regex(type="regex", pattern=r"\.(jpg|png|gif|pdf)$"),
-        action=Archive(kind="archive", dst=Path("/tmp/test.jpg")),
+        action=Archive(kind="archive", dst=Path("/tmp")),
     )
     rules = [rule_1, rule_2]
     moves = plan_moves(files, rules)
@@ -159,10 +159,10 @@ def test_plan_moves(jpg_file: FileInfo, pdf_file: FileInfo) -> None:
     assert len(moves) == 2
 
     jpg_move = next(m for m in moves if m.src == jpg_file.path)
-    assert jpg_move.dst == Path("/tmp/test.jpg")
+    assert jpg_move.dst == Path("/tmp") / jpg_file.path.name
 
     pdf_move = next(m for m in moves if m.src == pdf_file.path)
-    assert pdf_move.dst == Path("/tmp/dst")
+    assert pdf_move.dst == Path("/tmp/dst") / pdf_file.path.name
 
 
 def test_match_rule_normalizes_extensions() -> None:
@@ -198,4 +198,4 @@ def test_plan_moves_first_matching_rule_wins(jpg_file: FileInfo) -> None:
     moves = plan_moves([jpg_file], [rule_first, rule_second])
 
     assert len(moves) == 1
-    assert moves[0].dst == Path("/tmp/first")
+    assert moves[0].dst == Path("/tmp/first") / jpg_file.path.name

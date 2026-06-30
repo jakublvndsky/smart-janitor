@@ -1,0 +1,38 @@
+ # Smart Janitor — rules configuration
+# Documentation: https://github.com/jakublvndsky/smart-janitor
+
+version: 1
+rules:
+  # Move PDFs older than 30 days to archive
+  - match:
+      type: age
+      older_than_days: 30
+    action:
+      kind: archive
+      dst: ~/Documents/Archive
+
+  # Move images to Pictures folder
+  - match:
+      type: extension
+      pattern: jpg
+    action:
+      kind: move_to
+      dst: ~/Pictures
+
+  # Move large files (>500MB) to external drive
+  - match:
+      type: size
+      threshold: 500
+      unit: MB
+      operator: gt
+    action:
+      kind: move_to
+      dst: /Volumes/External/LargeFiles
+
+  # Move screenshots to dedicated folder
+  - match:
+      type: regex
+      pattern: "^Screenshot.*\.png$"
+    action:
+      kind: move_to
+      dst: ~/Pictures/Screenshots 

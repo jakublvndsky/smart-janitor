@@ -66,7 +66,7 @@ def plan_moves(files: list[FileInfo], rules: list[Rule]) -> list[Move]:
                 continue
             match rule.action:
                 case MoveTo(dst=d) | Archive(dst=d):
-                    moves.append(Move(src=file.path, dst=d, rule=rule))
+                    moves.append(Move(src=file.path, dst=d / file.path.name, rule=rule))
                     break
                 case Rename():
                     # TODO - implement later, requires rename-in-place vs move semantics
