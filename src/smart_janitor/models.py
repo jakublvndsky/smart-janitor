@@ -1,5 +1,5 @@
 import pathlib
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
@@ -109,3 +109,12 @@ class Config(BaseModel):
 class ConfigError(Exception):
     def __init__(self, message: str) -> None:
         super().__init__(message)
+
+
+class RunRecord(BaseModel):
+    run_id: str
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    scanned_path: pathlib.Path
+    config_path: pathlib.Path
+    report: ExecutionReport
+    undone: bool = False

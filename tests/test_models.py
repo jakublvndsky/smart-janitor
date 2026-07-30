@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -11,6 +12,7 @@ from smart_janitor.models import (
     Move,
     MoveTo,
     Rule,
+    RunRecord,
 )
 
 
@@ -60,14 +62,14 @@ def test_rule_rejects_unknown_match_type() -> None:
         )
 
 
-def test_execution_report_summary() -> None:
+def _exec_report() -> ExecutionReport:
     rule = Rule(
         match=Extension(type="extension", pattern="txt"),
         action=MoveTo(kind="move_to", dst=Path("/tmp/dst")),
     )
     move = Move(src=Path("/tmp/src/a.txt"), dst=Path("/tmp/dst/a.txt"), rule=rule)
 
-    report = ExecutionReport(
+    return ExecutionReport(
         successful_moves=[move, move],
         failed_moves=[
             FailedMove(
@@ -78,6 +80,10 @@ def test_execution_report_summary() -> None:
         ],
         dry_run=False,
     )
+
+
+def test_execution_report_summary() -> None:
+    report = _exec_report()
 
     assert report.summary == "Successful: 2 | Failed: 1 | Skipped: 0"
 
@@ -141,3 +147,28 @@ def test_execution_report_summary_true_dry_run(tmp_path: Path) -> None:
     )
 
     assert exec_report.summary == "Successful: 2 | Failed: 1 | Skipped: 1 | (dry run)"
+
+
+def test_run_record_serialization_and_fields_check(tmp_path: Path) -> None:
+    report = _exec_report()
+    config = tmp_path / "rules.yaml"
+    time = datetime.now(UTC)
+    recorded_run = RunRecord(
+        run_id=time.strftime("%Y%m%d-%H%M%S"),
+        timestamp=time,
+        scanned_path=Path("/tmp_path/src/"),
+        config_path=config,
+        report=report,
+        undone=False,
+    )
+    serialized = recorded_run.model_dump_json(indent=2)
+    model_reconstruction = recorded_run.model_validate_json(serialized)
+
+    assert model_reconstruction.scanned_path == Path("/tmp_path/src/")
+    assert model_reconstruction.timestamp.tzinfo is not None
+    assert model_reconstruction.report.summary == "Successful: 2 | Failed: 1 | Skipped: 0"
+    assert model_reconstruction.report.successful_moves == recorded_run.report.successful_moves
+    assert (
+        model_reconstruction.report.successful_moves[0].rule
+        == recorded_run.report.successful_moves[0].rule
+    )
