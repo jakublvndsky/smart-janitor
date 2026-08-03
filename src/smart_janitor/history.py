@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from pydantic import ValidationError
+
 from smart_janitor.models import RunRecord
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -28,9 +30,24 @@ def save_run(record: RunRecord, history_dir: Path = _full_dir_path) -> Path:
     return full_path
 
 
-def list_runs(history_dir: Path) -> str:  # list[RunRecord]:
+def list_runs(history_dir: Path) -> list[RunRecord]:
     # Reads all the logs and sort them by date
-    return "pass"
+    if not history_dir.exists():
+        raise FileNotFoundError(f"Could not find a directory: {history_dir}")
+
+    run_records: list[RunRecord] = []
+    for path in history_dir.glob("*.json"):
+        with open(path) as f:
+            file_content = f.read()
+            try:
+                record = RunRecord.model_validate_json(file_content)
+                run_records.append(record)
+            except ValidationError:
+                print(f"There is a problem to validate this file: {path.name}")
+                continue
+
+    sorted_runs = sorted(run_records, key=lambda record: record.run_id)
+    return sorted_runs
 
 
 def load_run(run_id: str, history_dir: Path) -> str:  # RunRecord:

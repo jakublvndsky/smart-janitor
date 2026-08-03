@@ -1,0 +1,35 @@
+{
+  "run_id": "20240615-153045",
+  "timestamp": "2024-06-15T15:30:45Z",
+  "scanned_path": "/tmp/src",
+  "config_path": "/tmp/rules.yaml",
+  "report": {
+    "successful_moves": [
+      {
+        "src": "/tmp/src/photo.jpg",
+        "dst": "/tmp/dst/photo.jpg",
+        "rule": {
+          "match": {"type": "extension", "pattern": "jpg"},
+          "action": {"kind": "move_to", "dst": "/tmp/dst"}
+        }
+      }
+    ],
+    "failed_moves": [
+      {
+        "move": {
+          "src": "/tmp/src/missing.pdf",
+          "dst": "/tmp/dst/missing.pdf",
+          "rule": {
+            "match": {"type": "extension", "pattern": "pdf"},
+            "action": {"kind": "move_to", "dst": "/tmp/dst"}
+          }
+        },
+        "error_type": "source_missing",
+        "error_message": "Missing"
+      }
+    ],
+    "skipped_moves": [],
+    "dry_run": false
+  },
+  "undone": false
+}

@@ -1,0 +1,22 @@
+{
+  "run_id": "20240701-090000",
+  "timestamp": "2024-07-01T09:00:00Z",
+  "scanned_path": "/tmp/src",
+  "config_path": "/tmp/rules.yaml",
+  "report": {
+    "successful_moves": [],
+    "failed_moves": [],
+    "skipped_moves": [
+      {
+        "src": "/tmp/src/notes.md",
+        "dst": "/tmp/dst/notes.md",
+        "rule": {
+          "match": {"type": "extension", "pattern": "md"},
+          "action": {"kind": "move_to", "dst": "/tmp/dst"}
+        }
+      }
+    ],
+    "dry_run": true
+  },
+  "undone": true
+}

@@ -1,0 +1,22 @@
+{
+  "run_id": "20240101-120000",
+  "timestamp": "2024-01-01T12:00:00Z",
+  "scanned_path": "/tmp/src",
+  "config_path": "/tmp/rules.yaml",
+  "report": {
+    "successful_moves": [
+      {
+        "src": "/tmp/src/a.txt",
+        "dst": "/tmp/dst/a.txt",
+        "rule": {
+          "match": {"type": "extension", "pattern": "txt"},
+          "action": {"kind": "move_to", "dst": "/tmp/dst"}
+        }
+      }
+    ],
+    "failed_moves": [],
+    "skipped_moves": [],
+    "dry_run": false
+  },
+  "undone": false
+}
