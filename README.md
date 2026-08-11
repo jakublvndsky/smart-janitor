@@ -36,11 +36,12 @@ smart-janitor init
 # Preview what would happen
 smart-janitor plan ~/Downloads --config rules.yaml
 
-# Run for real
+# Run for real (confirms before moving; add --yes to skip the prompt)
 smart-janitor run ~/Downloads --config rules.yaml
 
-# Oops — undo the last run
-smart-janitor undo
+# Oops — undo the last run (list runs first to find its ID)
+smart-janitor history
+smart-janitor undo 20240101-120000
 ```
 
 ## Configuration
@@ -48,22 +49,28 @@ smart-janitor undo
 Rules live in a YAML file. Example:
 
 ```yaml
+version: 1
 rules:
-  - name: "Archive old PDFs"
-    match:
-      extension: pdf
-      older_than_days: 30
+  - match:
+      type: extension
+      pattern: pdf
     action:
-      move_to: ~/Documents/Archive/PDFs
+      kind: move_to
+      dst: ~/Documents/Archive/PDFs
 
-  - name: "Screenshots to Pictures"
-    match:
-      regex: "^Screenshot.*\\.png$"
+  - match:
+      type: regex
+      pattern: "^Screenshot.*\\.png$"
     action:
-      move_to: ~/Pictures/Screenshots
+      kind: move_to
+      dst: ~/Pictures/Screenshots
 ```
 
-See [docs/configuration.md](docs/configuration.md) for the full reference. *(TBD)*
+Rules are evaluated in order — the first match wins. Matchers: `extension`,
+`regex`, `size` (with `unit`/`operator`), and `age` (with `older_than_days`).
+Actions: `move_to`, `archive`, and `rename` (regex rename in place).
+
+See [docs/configuration.md](docs/configuration.md) for the full reference.
 
 ## Development
 

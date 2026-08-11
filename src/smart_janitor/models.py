@@ -1,4 +1,5 @@
 import pathlib
+import re
 from datetime import UTC, datetime
 from typing import Literal
 
@@ -39,16 +40,38 @@ class MoveTo(BaseModel):
     kind: Literal["move_to"]
     dst: pathlib.Path
 
+    @field_validator("dst")
+    @classmethod
+    def expand_user(cls, v: pathlib.Path) -> pathlib.Path:
+        """Expand a leading ~ to the user's home directory."""
+        return v.expanduser() if str(v).startswith("~") else v
+
 
 class Rename(BaseModel):
     kind: Literal["rename"]
     pattern: str
     replacement: str
 
+    @field_validator("pattern")
+    @classmethod
+    def validate_pattern(cls, v: str) -> str:
+        """Reject invalid regular expressions at config-load time."""
+        try:
+            re.compile(v)
+        except re.error as e:
+            raise ValueError(f"Invalid regular expression {v!r}: {e}") from e
+        return v
+
 
 class Archive(BaseModel):
     kind: Literal["archive"]
     dst: pathlib.Path
+
+    @field_validator("dst")
+    @classmethod
+    def expand_user(cls, v: pathlib.Path) -> pathlib.Path:
+        """Expand a leading ~ to the user's home directory."""
+        return v.expanduser() if str(v).startswith("~") else v
 
 
 class Rule(BaseModel):

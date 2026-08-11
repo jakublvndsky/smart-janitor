@@ -1,5 +1,6 @@
 import re
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import assert_never
 
 from smart_janitor.models import (
@@ -59,6 +60,21 @@ def match_rule(file: FileInfo, rule: Rule) -> bool:
             assert_never(unreachable)
 
 
+def rename_file(file: FileInfo, rename: Rename) -> Path:
+    """Compute the new path for a rename action (same directory, new name).
+
+    The pattern is substituted within the filename (``re.sub`` semantics);
+    a pattern anchored with ``^``/``$`` replaces the whole name, so
+    backreferences in the replacement are always resolved.
+    """
+    new_name = re.sub(rename.pattern, rename.replacement, file.path.name)
+    if not new_name:
+        raise ValueError(
+            f"Rename rule {rename.pattern!r} -> {rename.replacement!r} produced an empty name for {file.path.name}"
+        )
+    return file.path.with_name(new_name)
+
+
 def plan_moves(files: list[FileInfo], rules: list[Rule]) -> list[Move]:
     moves: list[Move] = []
     for file in files:
@@ -69,8 +85,8 @@ def plan_moves(files: list[FileInfo], rules: list[Rule]) -> list[Move]:
                 case MoveTo(dst=d) | Archive(dst=d):
                     moves.append(Move(src=file.path, dst=d / file.path.name, rule=rule))
                     break
-                case Rename():
-                    # TODO - implement later, requires rename-in-place vs move semantics
+                case Rename() as rename:
+                    moves.append(Move(src=file.path, dst=rename_file(file, rename), rule=rule))
                     break
     return moves
 

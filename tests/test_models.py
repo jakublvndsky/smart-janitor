@@ -6,11 +6,13 @@ from pydantic import ValidationError
 
 from smart_janitor.models import (
     Age,
+    Archive,
     ExecutionReport,
     Extension,
     FailedMove,
     Move,
     MoveTo,
+    Rename,
     Rule,
     RunRecord,
 )
@@ -60,6 +62,29 @@ def test_rule_rejects_unknown_match_type() -> None:
                 "action": {"kind": "move_to", "dst": "/tmp"},
             }
         )
+
+
+def test_rename_rejects_invalid_regex() -> None:
+    """Invalid rename patterns must fail at config-load time, not at plan time."""
+    with pytest.raises(ValidationError):
+        Rename(kind="rename", pattern="([unclosed", replacement="x")
+
+
+def test_move_to_expands_tilde() -> None:
+    move = MoveTo(kind="move_to", dst=Path("~/Documents/Archive"))
+    assert move.dst == Path.home() / "Documents" / "Archive"
+
+
+def test_archive_expands_tilde() -> None:
+    archive = Archive(kind="archive", dst=Path("~/Archive"))
+    assert archive.dst == Path.home() / "Archive"
+
+
+def test_move_to_keeps_absolute_and_relative_paths() -> None:
+    absolute = MoveTo(kind="move_to", dst=Path("/tmp/x"))
+    relative = MoveTo(kind="move_to", dst=Path("sub/dir"))
+    assert absolute.dst == Path("/tmp/x")
+    assert relative.dst == Path("sub/dir")
 
 
 def _exec_report() -> ExecutionReport:

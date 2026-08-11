@@ -11,6 +11,7 @@ from smart_janitor.core import (
     invert_moves,
     match_rule,
     plan_moves,
+    rename_file,
 )
 from smart_janitor.models import (
     Age,
@@ -22,6 +23,7 @@ from smart_janitor.models import (
     Move,
     MoveTo,
     Regex,
+    Rename,
     Rule,
     RunRecord,
     Size,
@@ -308,3 +310,103 @@ def test_invert_moves_check_if_rules_the_same(tmp_path: Path) -> None:
     new_rules = [inverted.rule for inverted in inverted_moves]
 
     assert old_rules == new_rules
+
+
+def test_rename_file_full_name_replacement() -> None:
+    """A pattern matching the whole name is replaced verbatim."""
+    file = FileInfo(
+        path=Path("/tmp/IMG_1234.JPG"),
+        size=100,
+        mtime=datetime(2024, 1, 1, tzinfo=UTC),
+        extension="jpg",
+    )
+    rename = Rename(
+        kind="rename",
+        pattern=r"^IMG_(\d+)\.JPG$",
+        replacement=r"photo_\1.jpg",
+    )
+    assert rename_file(file, rename) == Path("/tmp/photo_1234.jpg")
+
+
+def test_rename_file_partial_substitution() -> None:
+    """A pattern matching part of the name is substituted in place."""
+    file = FileInfo(
+        path=Path("/tmp/report_final_v2.txt"),
+        size=100,
+        mtime=datetime(2024, 1, 1, tzinfo=UTC),
+        extension="txt",
+    )
+    rename = Rename(
+        kind="rename",
+        pattern=r"_final_v\d+",
+        replacement="",
+    )
+    assert rename_file(file, rename) == Path("/tmp/report.txt")
+
+
+def test_rename_file_no_match_returns_original_name() -> None:
+    file = FileInfo(
+        path=Path("/tmp/notes.txt"),
+        size=100,
+        mtime=datetime(2024, 1, 1, tzinfo=UTC),
+        extension="txt",
+    )
+    rename = Rename(kind="rename", pattern=r"\d+", replacement="X")
+    assert rename_file(file, rename) == Path("/tmp/notes.txt")
+
+
+def test_rename_file_empty_result_raises() -> None:
+    file = FileInfo(
+        path=Path("/tmp/notes.txt"),
+        size=100,
+        mtime=datetime(2024, 1, 1, tzinfo=UTC),
+        extension="txt",
+    )
+    rename = Rename(kind="rename", pattern=r"^notes\.txt$", replacement="")
+    with pytest.raises(ValueError):
+        rename_file(file, rename)
+
+
+def test_plan_moves_with_rename_action() -> None:
+    """Rename actions produce an in-place move with the new name."""
+    file = FileInfo(
+        path=Path("/tmp/Screenshot 2024-05-29 at 10.30.00.png"),
+        size=100,
+        mtime=datetime(2024, 1, 1, tzinfo=UTC),
+        extension="png",
+    )
+    rule = Rule(
+        match=Regex(type="regex", pattern=r"^Screenshot.*\.png$"),
+        action=Rename(
+            kind="rename",
+            pattern=r"^Screenshot (\d{4}-\d{2}-\d{2}) at (\d{2}\.\d{2}\.\d{2})\.png$",
+            replacement=r"screenshot_\1_\2.png",
+        ),
+    )
+    moves = plan_moves([file], [rule])
+
+    assert len(moves) == 1
+    assert moves[0].src == file.path
+    assert moves[0].dst == Path("/tmp/screenshot_2024-05-29_10.30.00.png")
+
+
+def test_plan_moves_rename_rule_order_respected() -> None:
+    """A rename rule later in the list does not shadow an earlier match."""
+    file = FileInfo(
+        path=Path("/tmp/a.jpg"),
+        size=100,
+        mtime=datetime(2024, 1, 1, tzinfo=UTC),
+        extension="jpg",
+    )
+    move_rule = Rule(
+        match=Extension(type="extension", pattern="jpg"),
+        action=MoveTo(kind="move_to", dst=Path("/tmp/pics")),
+    )
+    rename_rule = Rule(
+        match=Extension(type="extension", pattern="jpg"),
+        action=Rename(kind="rename", pattern="a", replacement="b"),
+    )
+    moves = plan_moves([file], [move_rule, rename_rule])
+
+    assert len(moves) == 1
+    assert moves[0].dst == Path("/tmp/pics/a.jpg")

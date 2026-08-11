@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from smart_janitor.io import execute_moves, load_config, scan_directory
-from smart_janitor.models import ConfigError, Extension, Move, MoveTo, Rule
+from smart_janitor.models import ConfigError, Extension, Move, MoveTo, Rename, Rule
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -375,3 +375,111 @@ def test_execute_moves_on_collision_check_and_rename_second_file_which_goes_to_s
     assert not src.exists()
     assert (dst_dir / "ghost_2.txt").exists()
     assert dst.read_text() == "original content"
+
+
+def test_execute_moves_creates_fresh_dest_dir_and_preserves_existing_file(
+    tmp_path: Path,
+) -> None:
+    """Moving into a new destination directory must not clobber a target file.
+
+    The destination directory is created *before* the collision check, so a
+    pre-existing target file is detected and the collision strategy applies
+    instead of being silently overwritten.
+    """
+    src_dir = tmp_path / "source"
+    src_dir.mkdir()
+    src = src_dir / "ghost.txt"
+    src.write_text("new content")
+
+    dst_dir = tmp_path / "dest"
+    dst_dir.mkdir()
+    (dst_dir / "ghost.txt").write_text("pre-existing")
+
+    move = Move(
+        src=src,
+        dst=dst_dir / "ghost.txt",
+        rule=Rule(
+            match=Extension(type="extension", pattern="txt"),
+            action=MoveTo(kind="move_to", dst=dst_dir),
+        ),
+    )
+
+    report = execute_moves([move], on_collision="rename")
+
+    assert len(report.successful_moves) == 1
+    assert len(report.skipped_moves) == 0
+    assert not src.exists()
+    # Pre-existing target untouched; moved file landed under a suffixed name.
+    assert (dst_dir / "ghost.txt").read_text() == "pre-existing"
+    assert (dst_dir / "ghost_1.txt").read_text() == "new content"
+
+
+def test_execute_moves_unknown_collision_strategy_raises(tmp_path: Path) -> None:
+    src = tmp_path / "source.txt"
+    src.write_text("x")
+    move = Move(
+        src=src,
+        dst=tmp_path / "dest" / "source.txt",
+        rule=Rule(
+            match=Extension(type="extension", pattern="txt"),
+            action=MoveTo(kind="move_to", dst=tmp_path / "dest"),
+        ),
+    )
+    with pytest.raises(ValueError):
+        execute_moves([move], on_collision="explode")  # type: ignore[arg-type]
+
+
+def test_execute_moves_reports_failed_move(tmp_path: Path) -> None:
+    """A failing shutil.move lands in failed_moves instead of crashing the run."""
+    src_dir = tmp_path / "source"
+    src_dir.mkdir()
+    src = src_dir / "a.txt"
+    src.write_text("x")
+
+    # Destination directory is read-only -> PermissionError on move.
+    dst_dir = tmp_path / "dest"
+    dst_dir.mkdir()
+    dst_dir.chmod(0o555)
+    try:
+        move = Move(
+            src=src,
+            dst=dst_dir / "a.txt",
+            rule=Rule(
+                match=Extension(type="extension", pattern="txt"),
+                action=MoveTo(kind="move_to", dst=dst_dir),
+            ),
+        )
+
+        report = execute_moves([move], on_collision="overwrite")
+
+        assert len(report.failed_moves) == 1
+        assert report.failed_moves[0].error_type == "permission_denied"
+        assert len(report.successful_moves) == 0
+        assert src.exists()
+    finally:
+        dst_dir.chmod(0o755)
+
+
+def test_rename_moves_executed_in_place(tmp_path: Path) -> None:
+    """A rename rule moves the file to its new name in the same directory."""
+    src = tmp_path / "Screenshot 2024-05-29 at 10.30.00.png"
+    src.write_text("shot")
+
+    move = Move(
+        src=src,
+        dst=tmp_path / "screenshot_2024-05-29_10.30.00.png",
+        rule=Rule(
+            match=Extension(type="extension", pattern="png"),
+            action=Rename(
+                kind="rename",
+                pattern=r"^Screenshot (\d{4}-\d{2}-\d{2}) at (\d{2}\.\d{2}\.\d{2})\.png$",
+                replacement=r"screenshot_\1_\2.png",
+            ),
+        ),
+    )
+
+    report = execute_moves([move])
+
+    assert len(report.successful_moves) == 1
+    assert not src.exists()
+    assert (tmp_path / "screenshot_2024-05-29_10.30.00.png").read_text() == "shot"

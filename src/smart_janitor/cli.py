@@ -42,7 +42,7 @@ def print_moves(moves: list[Move]) -> None:
     console.print(f"[bold]{len(moves)}[/bold] files to move")
 
 
-SAMPLE_CONFIG = """# Smart Janitor — rules configuration
+SAMPLE_CONFIG = r"""# Smart Janitor - rules configuration
 # Documentation: https://github.com/jakublvndsky/smart-janitor
 
 version: 1
@@ -76,10 +76,19 @@ rules:
   # Move screenshots to dedicated folder
   - match:
       type: regex
-      pattern: "^Screenshot.*\\.png$"
+      pattern: '^Screenshot.*\.png$'
     action:
       kind: move_to
-      dst: ~/Pictures/Screenshots """
+      dst: ~/Pictures/Screenshots
+
+  # Rename screenshots with a normalized prefix
+  - match:
+      type: regex
+      pattern: '^Screenshot (\d{4}-\d{2}-\d{2}) at (\d{2}\.\d{2}\.\d{2})\.png$'
+    action:
+      kind: rename
+      pattern: '^Screenshot (\d{4}-\d{2}-\d{2}) at (\d{2}\.\d{2}\.\d{2})\.png$'
+      replacement: 'screenshot_\1_\2.png' """
 
 app = typer.Typer(help="Tidy up messy folders based on declarative YAML rules.")
 
@@ -131,6 +140,9 @@ def run(
     recursive: bool = True,
     include_hidden: bool = False,
     dry_run: Annotated[bool, typer.Option("--dry-run", "-dr", help="Execute dry run")] = False,
+    yes: Annotated[
+        bool, typer.Option("--yes", "-y", help="Skip the confirmation prompt")
+    ] = False,
     on_collision: Annotated[
         CollisionStrategy,
         typer.Option("--on-collision", "-oc", help="How should execution behave on collision"),
@@ -150,6 +162,16 @@ def run(
         raise typer.Exit(code=1) from e
 
     planned_moves = plan_moves(files=scanned_files, rules=config_rules)
+
+    if not dry_run and not yes:
+        if not planned_moves:
+            typer.echo("Nothing to do — no files matched the rules.")
+            raise typer.Exit(code=0)
+        typer.echo(f"About to move {len(planned_moves)} file(s).")
+        if not typer.confirm("Continue?"):
+            typer.echo("Aborted.")
+            raise typer.Exit(code=1)
+
     exec_report = execute_moves(
         moves=planned_moves, dry_run=dry_run, on_collision=on_collision.value
     )
@@ -196,6 +218,9 @@ def undo(
         Path, typer.Option("--history-dir", "-hd", help="Directory for the run history")
     ] = DEFAULT_HISTORY_DIR,
     dry_run: Annotated[bool, typer.Option("--dry-run", "-dr", help="Execute dry run")] = False,
+    yes: Annotated[
+        bool, typer.Option("--yes", "-y", help="Skip the confirmation prompt")
+    ] = False,
     on_collision: Annotated[
         CollisionStrategy,
         typer.Option("--on-collision", "-oc", help="How should execution behave on collision"),
@@ -213,6 +238,16 @@ def undo(
         raise typer.Exit(0)
 
     inverted_moves = invert_moves(loaded_run)
+
+    if not dry_run and not yes:
+        if not inverted_moves:
+            typer.echo("Nothing to undo — no successful moves in this run.")
+            raise typer.Exit(code=0)
+        typer.echo(f"About to undo {len(inverted_moves)} move(s).")
+        if not typer.confirm("Continue?"):
+            typer.echo("Aborted.")
+            raise typer.Exit(code=1)
+
     exec_report = execute_moves(
         moves=inverted_moves, dry_run=dry_run, on_collision=on_collision.value
     )

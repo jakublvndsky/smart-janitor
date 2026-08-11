@@ -93,7 +93,7 @@ def _validate_preconditions(move: Move) -> FailedMove | None:
         return FailedMove(
             move=move,
             error_type="source_missing",
-            error_message="Typed source is missing, please type correct one.",
+            error_message=f"Source file does not exist: {move.src}",
         )
     return None
 
@@ -102,6 +102,10 @@ def _resolve_destination(
     move: Move, on_collision: Literal["skip", "rename", "overwrite"]
 ) -> Path | None:
     """Resolve final destination considering collisions. Return None to skip."""
+    # Create the parent directory before checking collisions, otherwise a move
+    # into a not-yet-existing folder would never detect an existing target.
+    move.dst.parent.mkdir(parents=True, exist_ok=True)
+
     if not move.dst.exists():
         return move.dst
 
@@ -112,7 +116,8 @@ def _resolve_destination(
             return move.dst
         case "rename":
             return resolve_collision_name(move.dst.parent, move.dst.name)
-
+        case _:
+            raise ValueError(f"Unknown collision strategy: {on_collision}")
 
 def execute_moves(
     moves: list[Move],
@@ -121,6 +126,9 @@ def execute_moves(
     on_collision: Literal["skip", "rename", "overwrite"] = "skip",
 ) -> ExecutionReport:
     """Execute planned moves, returning a report of successes and failures"""
+    if on_collision not in ("skip", "rename", "overwrite"):
+        raise ValueError(f"Unknown collision strategy: {on_collision}")
+
     successful: list[Move] = []
     failed: list[FailedMove] = []
     skipped: list[Move] = []
@@ -137,8 +145,19 @@ def execute_moves(
             continue
 
         if not dry_run:
-            final_dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(str(move.src), str(final_dst))
+            try:
+                shutil.move(str(move.src), str(final_dst))
+            except (shutil.Error, PermissionError, OSError) as e:
+                failed.append(
+                    FailedMove(
+                        move=move,
+                        error_type="permission_denied"
+                        if isinstance(e, PermissionError)
+                        else "other",
+                        error_message=str(e),
+                    )
+                )
+                continue
 
         successful.append(move)
 
