@@ -1,3 +1,5 @@
+import logging
+from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Annotated
@@ -6,10 +8,13 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from smart_janitor.core import plan_moves
+from smart_janitor.core import invert_moves, plan_moves
+from smart_janitor.history import list_runs, load_run, mark_run_as_undone, save_run
 from smart_janitor.io import execute_moves, load_config, scan_directory
-from smart_janitor.models import ConfigError, Move
-from smart_janitor.reporting import print_execution_report
+from smart_janitor.models import ConfigError, Move, RunNotFoundError, RunRecord
+from smart_janitor.reporting import print_execution_report, print_run_history
+
+DEFAULT_HISTORY_DIR = Path.home() / ".smart-janitor" / "history"
 
 
 class CollisionStrategy(StrEnum):
@@ -130,6 +135,9 @@ def run(
         CollisionStrategy,
         typer.Option("--on-collision", "-oc", help="How should execution behave on collision"),
     ] = CollisionStrategy.skip,
+    history_dir: Annotated[
+        Path, typer.Option("--history-dir", "-hd", help="Directory for the run history")
+    ] = DEFAULT_HISTORY_DIR,
 ) -> None:
     """Execute the tidying: scan, plan, and move files."""
     try:
@@ -145,6 +153,72 @@ def run(
     exec_report = execute_moves(
         moves=planned_moves, dry_run=dry_run, on_collision=on_collision.value
     )
+
+    time = datetime.now(UTC)
+    record = RunRecord(
+        run_id=time.strftime("%Y%m%d-%H%M%S"),
+        timestamp=time,
+        scanned_path=path,
+        config_path=config,
+        report=exec_report,
+        undone=False,
+    )
+
+    if not dry_run:
+        try:
+            saved_run = save_run(record=record, history_dir=history_dir)
+            typer.echo(f"Run saved as {saved_run.stem}")
+        except OSError as e:
+            logging.warning(f"Could not save run history: {e}")
+
+    print_execution_report(exec_report)
+
+
+@app.command()
+def history(
+    history_dir: Annotated[
+        Path, typer.Option("--history-dir", "-hd", help="Directory for the run history")
+    ] = DEFAULT_HISTORY_DIR,
+) -> None:
+    """List history runs."""
+    records = list_runs(history_dir=history_dir)
+    if not records:
+        typer.echo("No previous runs")
+        raise typer.Exit(0)
+
+    print_run_history(records=records)
+
+
+@app.command()
+def undo(
+    run_id: Annotated[str, typer.Argument(help="Run ID to undo")],
+    history_dir: Annotated[
+        Path, typer.Option("--history-dir", "-hd", help="Directory for the run history")
+    ] = DEFAULT_HISTORY_DIR,
+    dry_run: Annotated[bool, typer.Option("--dry-run", "-dr", help="Execute dry run")] = False,
+    on_collision: Annotated[
+        CollisionStrategy,
+        typer.Option("--on-collision", "-oc", help="How should execution behave on collision"),
+    ] = CollisionStrategy.skip,
+) -> None:
+    """Invert chosen run from the history."""
+    try:
+        loaded_run = load_run(run_id=run_id, history_dir=history_dir)
+    except RunNotFoundError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1) from e
+
+    if loaded_run.undone:
+        typer.echo("This run was already undone")
+        raise typer.Exit(0)
+
+    inverted_moves = invert_moves(loaded_run)
+    exec_report = execute_moves(
+        moves=inverted_moves, dry_run=dry_run, on_collision=on_collision.value
+    )
+
+    if not dry_run:
+        mark_run_as_undone(run_id=run_id, history_dir=history_dir)
 
     print_execution_report(exec_report)
 

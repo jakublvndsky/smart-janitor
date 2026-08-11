@@ -8,10 +8,24 @@ from smart_janitor.core import (
     _match_extension,
     _match_regex,
     _match_size,
+    invert_moves,
     match_rule,
     plan_moves,
 )
-from smart_janitor.models import Age, Archive, Extension, FileInfo, MoveTo, Regex, Rule, Size
+from smart_janitor.models import (
+    Age,
+    Archive,
+    ExecutionReport,
+    Extension,
+    FailedMove,
+    FileInfo,
+    Move,
+    MoveTo,
+    Regex,
+    Rule,
+    RunRecord,
+    Size,
+)
 
 
 @pytest.mark.parametrize(
@@ -199,3 +213,98 @@ def test_plan_moves_first_matching_rule_wins(jpg_file: FileInfo) -> None:
 
     assert len(moves) == 1
     assert moves[0].dst == Path("/tmp/first") / jpg_file.path.name
+
+
+def _exec_report() -> ExecutionReport:
+    rule = Rule(
+        match=Extension(type="extension", pattern="txt"),
+        action=MoveTo(kind="move_to", dst=Path("/tmp/dst")),
+    )
+    move = Move(src=Path("/tmp/src/a.txt"), dst=Path("/tmp/dst/a.txt"), rule=rule)
+
+    return ExecutionReport(
+        successful_moves=[move, move],
+        failed_moves=[
+            FailedMove(
+                move=move,
+                error_type="source_missing",
+                error_message="Missing",
+            )
+        ],
+        dry_run=False,
+    )
+
+
+def _run_record_(tmp_path: Path) -> RunRecord:
+    report = _exec_report()
+    config = tmp_path / "rules.yaml"
+    time = datetime.now(UTC)
+    return RunRecord(
+        run_id=time.strftime("%Y%m%d-%H%M%S"),
+        timestamp=time,
+        scanned_path=Path("/tmp_path/src/"),
+        config_path=config,
+        report=report,
+        undone=False,
+    )
+
+
+def test_invert_moves_succesful_undo(tmp_path: Path) -> None:
+    record = _run_record_(tmp_path)
+    inverted_moves = invert_moves(record)
+
+    for original, inverted in zip(record.report.successful_moves, inverted_moves, strict=True):
+        assert inverted.src == original.dst
+        assert inverted.dst == original.src
+
+
+def _exec_report_only_skipped_and_failed() -> ExecutionReport:
+    rule = Rule(
+        match=Extension(type="extension", pattern="txt"),
+        action=MoveTo(kind="move_to", dst=Path("/tmp/dst")),
+    )
+    move = Move(src=Path("/tmp/src/a.txt"), dst=Path("/tmp/dst/a.txt"), rule=rule)
+
+    return ExecutionReport(
+        successful_moves=[],
+        failed_moves=[
+            FailedMove(
+                move=move,
+                error_type="source_missing",
+                error_message="Missing",
+            )
+        ],
+        skipped_moves=[move, move],
+        dry_run=False,
+    )
+
+
+def _run_record_skipped_and_failed(tmp_path: Path) -> RunRecord:
+    report = _exec_report_only_skipped_and_failed()
+    config = tmp_path / "rules.yaml"
+    time = datetime.now(UTC)
+    return RunRecord(
+        run_id=time.strftime("%Y%m%d-%H%M%S"),
+        timestamp=time,
+        scanned_path=Path("/tmp_path/src/"),
+        config_path=config,
+        report=report,
+        undone=False,
+    )
+
+
+def test_invert_moves_skipped_and_failed(tmp_path: Path) -> None:
+    record = _run_record_skipped_and_failed(tmp_path)
+    inverted_moves = invert_moves(record)
+
+    assert inverted_moves == []
+
+
+def test_invert_moves_check_if_rules_the_same(tmp_path: Path) -> None:
+    record = _run_record_(tmp_path)
+    inverted_moves = invert_moves(record)
+
+    old_rules = [r.rule for r in record.report.successful_moves]
+    new_rules = [inverted.rule for inverted in inverted_moves]
+
+    assert old_rules == new_rules

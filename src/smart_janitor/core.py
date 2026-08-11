@@ -12,6 +12,7 @@ from smart_janitor.models import (
     Regex,
     Rename,
     Rule,
+    RunRecord,
     Size,
 )
 
@@ -72,3 +73,15 @@ def plan_moves(files: list[FileInfo], rules: list[Rule]) -> list[Move]:
                     # TODO - implement later, requires rename-in-place vs move semantics
                     break
     return moves
+
+
+def invert_moves(record: RunRecord) -> list[Move]:
+    """Invert only succesful moves with the same rule"""
+    inverted_moves: list[Move] = []
+    for successful_move in record.report.successful_moves:
+        move_to_invert = Move(
+            src=successful_move.dst, dst=successful_move.src, rule=successful_move.rule
+        )
+        inverted_moves.append(move_to_invert)
+
+    return inverted_moves

@@ -118,3 +118,8 @@ class RunRecord(BaseModel):
     config_path: pathlib.Path
     report: ExecutionReport
     undone: bool = False
+
+
+class RunNotFoundError(Exception):
+    def __init__(self, message: str) -> None:
+        super().__init__(message)

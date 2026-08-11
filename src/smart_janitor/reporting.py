@@ -2,7 +2,7 @@ from rich.console import Console, ConsoleRenderable
 from rich.panel import Panel
 from rich.table import Table
 
-from smart_janitor.models import ExecutionReport
+from smart_janitor.models import ExecutionReport, RunRecord
 
 
 def render_execution_report(report: ExecutionReport) -> list[ConsoleRenderable]:
@@ -56,3 +56,33 @@ def print_execution_report(report: ExecutionReport, console: Console | None = No
     console = console or Console()
     for part in render_execution_report(report):
         console.print(part)
+
+
+def render_run_history(records: list[RunRecord]) -> list[ConsoleRenderable]:
+    """Returns Rich objects"""
+    parts: list[ConsoleRenderable] = []
+
+    if records:
+        t = Table(title="Run history", show_lines=True)
+        t.add_column("RunID", overflow="fold")
+        t.add_column("Date", overflow="fold")
+        t.add_column("Scanned folder", overflow="fold")
+        t.add_column("Summary", overflow="fold")
+        t.add_column("Is undone?", overflow="fold")
+        for record in records:
+            t.add_row(
+                record.run_id,
+                record.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                str(record.scanned_path),
+                record.report.summary,
+                str(record.undone),
+            )
+        parts.append(t)
+
+    return parts
+
+
+def print_run_history(records: list[RunRecord], console: Console | None = None) -> None:
+    console = console or Console()
+    for record in render_run_history(records):
+        console.print(record)

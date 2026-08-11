@@ -4,6 +4,7 @@ import pytest
 from typer.testing import CliRunner
 
 from smart_janitor.cli import app
+from smart_janitor.history import list_runs
 
 runner = CliRunner()
 
@@ -91,3 +92,97 @@ def test_run_dry_run_without_moving_files(cli_setup: tuple[Path, Path, Path]) ->
     assert result.exit_code == 0
     assert (scan_dir / "photo.jpg").exists()
     assert not (dest_dir / "photo.jpg").exists()
+
+
+def test_run_config_errors(tmp_path: Path) -> None:
+    scan_dir = tmp_path / "scanned"
+    config = tmp_path / "invalid.json"
+
+    result = runner.invoke(app, ["run", str(scan_dir), "--config", str(config)])
+
+    assert result.exit_code == 1
+    assert "Error:" in result.output
+
+
+def test_history_after_run_moving_files(cli_setup: tuple[Path, Path, Path], tmp_path: Path) -> None:
+    scan_dir, config, dest_dir = cli_setup
+    history_dir = tmp_path / "smart-janitor" / "history"
+    history_dir.mkdir(parents=True)
+    result = runner.invoke(
+        app, ["run", str(scan_dir), "--config", str(config), "--history-dir", str(history_dir)]
+    )
+
+    history_runs = list_runs(history_dir=history_dir)
+    history = runner.invoke(
+        app, ["history", "--history-dir", str(history_dir)], env={"COLUMNS": "200"}
+    )
+
+    assert result.exit_code == 0
+    assert history.exit_code == 0
+    assert len(history_runs) == 1
+    assert "Run history" in history.output
+    assert f"{history_runs[0].run_id[:8]}" in history.output
+    assert (dest_dir / "photo.jpg").exists()
+
+
+def test_undo_after_run_moving_files(cli_setup: tuple[Path, Path, Path], tmp_path: Path) -> None:
+    scan_dir, config, dest_dir = cli_setup
+    history_dir = tmp_path / "smart-janitor" / "history"
+    history_dir.mkdir(parents=True)
+    result = runner.invoke(
+        app, ["run", str(scan_dir), "--config", str(config), "--history-dir", str(history_dir)]
+    )
+
+    history_runs = list_runs(history_dir=history_dir)
+    undo_result = runner.invoke(
+        app, ["undo", str(history_runs[0].run_id), "--history-dir", str(history_dir)]
+    )
+
+    assert result.exit_code == 0
+    assert undo_result.exit_code == 0
+    assert (scan_dir / "photo.jpg").exists()
+    assert not (dest_dir / "photo.jpg").exists()
+
+
+def test_undo_with_invalid_run_id() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "undo",
+            "invalid",
+        ],
+    )
+    assert result.exit_code == 1
+    assert "Error: " in result.output
+
+
+def test_undo_two_times_on_the_same_run(cli_setup: tuple[Path, Path, Path], tmp_path: Path) -> None:
+    scan_dir, config, _ = cli_setup
+    history_dir = tmp_path / "smart-janitor" / "history"
+    history_dir.mkdir(parents=True)
+    result = runner.invoke(
+        app, ["run", str(scan_dir), "--config", str(config), "--history-dir", str(history_dir)]
+    )
+
+    history_runs = list_runs(history_dir=history_dir)
+    undo_result = runner.invoke(
+        app, ["undo", str(history_runs[0].run_id), "--history-dir", str(history_dir)]
+    )
+
+    second_undo = runner.invoke(
+        app, ["undo", str(history_runs[0].run_id), "--history-dir", str(history_dir)]
+    )
+    assert result.exit_code == 0
+    assert undo_result.exit_code == 0
+    assert second_undo.exit_code == 0
+    assert "This run was already undone" in second_undo.output
+
+
+def test_history_on_empty_catalog(tmp_path: Path) -> None:
+    history_dir = tmp_path / "smart-janitor" / "history"
+    history_dir.mkdir(parents=True)
+
+    result = runner.invoke(app, ["history", "--history-dir", str(history_dir)])
+
+    assert result.exit_code == 0
+    assert "No previous runs" in result.output
