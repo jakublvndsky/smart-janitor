@@ -50,7 +50,7 @@ def test_render_only_summary_when_empty() -> None:
 
 
 def test_render_run_history_when_empty_list() -> None:
-    run_history = []
+    run_history: list[RunRecord] = []
     parts = render_run_history(run_history)
     assert not parts
 
