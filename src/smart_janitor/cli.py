@@ -42,7 +42,7 @@ def print_moves(moves: list[Move]) -> None:
     console.print(f"[bold]{len(moves)}[/bold] files to move")
 
 
-SAMPLE_CONFIG = """# Smart Janitor — rules configuration
+SAMPLE_CONFIG = r"""# Smart Janitor — rules configuration
 # Documentation: https://github.com/jakublvndsky/smart-janitor
 
 version: 1
@@ -76,7 +76,7 @@ rules:
   # Move screenshots to dedicated folder
   - match:
       type: regex
-      pattern: "^Screenshot.*\\.png$"
+      pattern: '^Screenshot.*\.png$'
     action:
       kind: move_to
       dst: ~/Pictures/Screenshots """

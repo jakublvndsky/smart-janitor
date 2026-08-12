@@ -32,7 +32,7 @@ rules:
   # Move screenshots to dedicated folder
   - match:
       type: regex
-      pattern: "^Screenshot.*\.png$"
+      pattern: '^Screenshot.*\.png$'
     action:
       kind: move_to
       dst: ~/Pictures/Screenshots 

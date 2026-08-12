@@ -123,7 +123,7 @@ match:
 ```yaml
 match:
   type: regex
-  pattern: "^Screenshot.*\\.png$"
+  pattern: '^Screenshot.*\.png$'
 ```
 
 **`size`** — compare file size (`operator`: `lt` | `gt` | `eq`; `unit`: `B` | `KB` | `MB` | `GB`):
