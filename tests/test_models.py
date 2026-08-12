@@ -6,6 +6,7 @@ from pydantic import ValidationError
 
 from smart_janitor.models import (
     Age,
+    Archive,
     ExecutionReport,
     Extension,
     FailedMove,
@@ -172,3 +173,22 @@ def test_run_record_serialization_and_fields_check(tmp_path: Path) -> None:
         model_reconstruction.report.successful_moves[0].rule
         == recorded_run.report.successful_moves[0].rule
     )
+
+
+def test_tilde_in_moveto() -> None:
+    dst = Path("~/Documents/Archive")
+    move = MoveTo(kind="move_to", dst=dst)
+    assert move.dst == Path.home() / "Documents" / "Archive"
+
+
+def test_tilde_in_archive() -> None:
+    dst = Path("~/Archive")
+    move = Archive(kind="archive", dst=dst)
+    assert move.dst == Path.home() / "Archive"
+
+
+def test_path_without_tilde() -> None:
+    first_dst = MoveTo(kind="move_to", dst=Path("/tmp/dst"))
+    second_dst = MoveTo(kind="move_to", dst=Path("sub/dir"))
+    assert first_dst.dst == Path("/tmp/dst")
+    assert second_dst.dst == Path("sub/dir")

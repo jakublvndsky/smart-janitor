@@ -39,6 +39,11 @@ class MoveTo(BaseModel):
     kind: Literal["move_to"]
     dst: pathlib.Path
 
+    @field_validator("dst")
+    @classmethod
+    def expand_user_path(cls, dst: pathlib.Path) -> pathlib.Path:
+        return dst.expanduser()
+
 
 class Rename(BaseModel):
     kind: Literal["rename"]
@@ -49,6 +54,11 @@ class Rename(BaseModel):
 class Archive(BaseModel):
     kind: Literal["archive"]
     dst: pathlib.Path
+
+    @field_validator("dst")
+    @classmethod
+    def expand_user_path(cls, dst: pathlib.Path) -> pathlib.Path:
+        return dst.expanduser()
 
 
 class Rule(BaseModel):
